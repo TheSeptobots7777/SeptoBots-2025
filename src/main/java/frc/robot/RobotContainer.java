@@ -11,19 +11,21 @@ import com.ctre.phoenix6.swerve.SwerveRequest;
 
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.Joystick;
+import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
+import edu.wpi.first.wpilibj2.command.button.JoystickButton;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
-import frc.robot.Commands.OperateClawCommand;
+import frc.robot.Commands.MoveClawStuck;
+import frc.robot.Commands.MoveClawUnstuck;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.ClawSubsystem;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 
 public class RobotContainer {
 
-    private final ClawSubsystem clawSubsystem = new ClawSubsystem();
-    private final Joystick driver2 = new Joystick(1); 
 
     private double MaxSpeed = TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); // kSpeedAt12Volts desired top speed
     private double MaxAngularRate = RotationsPerSecond.of(0.5 * 0.5).in(RadiansPerSecond); // 3/4 of a rotation per second max angular velocity
@@ -34,22 +36,45 @@ public class RobotContainer {
     private final SwerveRequest.FieldCentric drive = new SwerveRequest.FieldCentric()
             .withDeadband(MaxSpeed * 0.1).withRotationalDeadband(MaxAngularRate * 0.1) // Add a 10% deadband
             .withDriveRequestType(DriveRequestType.OpenLoopVoltage); // Use open-loop control for drive motors
+
+    SendableChooser chooser = new SendableChooser();
+    SendableChooser modeChooser = new SendableChooser();
+
+
     private final SwerveRequest.SwerveDriveBrake brake = new SwerveRequest.SwerveDriveBrake();
     private final SwerveRequest.PointWheelsAt point = new SwerveRequest.PointWheelsAt();
 
     private final Telemetry logger = new Telemetry(MaxSpeed);
     
+    private final ClawSubsystem clawSubsystem = new ClawSubsystem(20); // Replace with actual CAN ID
+
 
     // Driver 1 - Starts at 0
     private final CommandXboxController joystick = new CommandXboxController(0);
     
+    // Driver 2 - Ends at 1
+    private Joystick driver2 = new Joystick(1); 
 
     // Tuned Swerve
     public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
 
     // Path Planner
-
     public RobotContainer() {
+        
+        chooser.addOption("SeptoBots Auto1", 0);
+        chooser.addOption("SeptoBots Auto2" , 1);
+        //modeChooser.addOption("Competition", PivotState.STOW);
+        //modeChooser.addOption("Outreach", PivotState.MANUAL);
+        //shooter = new Shooter(drivetrain, intake::isIntaking,modeChooser.getSelected());
+
+
+
+
+
+
+    
+        SmartDashboard.putData(chooser);
+        
         configureBindings();
     }
 
@@ -83,13 +108,29 @@ public class RobotContainer {
 
         drivetrain.registerTelemetry(logger::telemeterize);   
         
-        clawSubsystem.setDefaultCommand(new OperateClawCommand(clawSubsystem, driver2));
+        new JoystickButton(driver2, 2) // Button 2 (Cross) for Stuck
+            .whileTrue(new MoveClawStuck(clawSubsystem));
+
+        new JoystickButton(driver2, 4) // Button 4 (Triangle) for Unstuck
+            .whileTrue(new MoveClawUnstuck(clawSubsystem));
 
     }
+    private Command chooseAuto(){
+    switch ((int) chooser.getSelected()) {
+      case 0:
+        return new SequentialCommandGroup(
+              //shooter.setState(PivotState.SPEAKER),
+              //shooter.ShootSpeaker()
+        );
 
+      default:
+        return null;
+    }
+  }
 
     public Command getAutonomousCommand() {
-        return Commands.print("No autonomous command configured");
-        //return new PathPlannerAuto("SeptoBots Auto1");
+        //return Commands.print("No autonomous command configured");
+        return chooseAuto();    
     }
+        
 }
