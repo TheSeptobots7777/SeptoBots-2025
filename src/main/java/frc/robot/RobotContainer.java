@@ -8,24 +8,28 @@ import static edu.wpi.first.units.Units.*;
 
 import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest;
+import com.pathplanner.lib.auto.NamedCommands;
 
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.wpilibj.Joystick;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
-import edu.wpi.first.wpilibj2.command.button.JoystickButton;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
-import frc.robot.Commands.MoveClawStuck;
-import frc.robot.Commands.MoveClawUnstuck;
+import frc.robot.commands.ScoringPosition;
 import frc.robot.generated.TunerConstants;
-import frc.robot.subsystems.ClawSubsystem;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
+import frc.robot.subsystems.CoralSubsystem;
+import frc.robot.subsystems.CoralSubsystem.CoralPivotPositions;
 
 public class RobotContainer {
-
+    private final CoralSubsystem coralSubsystem = new CoralSubsystem();
+    private int L1Button = 9;
+    private int L2Button = 8;
+    private int L3Button = 5;
+    private int L4Button = 1;
 
     private double MaxSpeed = TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); // kSpeedAt12Volts desired top speed
     private double MaxAngularRate = RotationsPerSecond.of(0.5 * 0.5).in(RadiansPerSecond); // 3/4 of a rotation per second max angular velocity
@@ -46,14 +50,12 @@ public class RobotContainer {
 
     private final Telemetry logger = new Telemetry(MaxSpeed);
     
-    private final ClawSubsystem clawSubsystem = new ClawSubsystem(20); // Replace with actual CAN ID
-
 
     // Driver 1 - Starts at 0
     private final CommandXboxController joystick = new CommandXboxController(0);
     
     // Driver 2 - Ends at 1
-    private Joystick driver2 = new Joystick(1); 
+    private final CommandXboxController driver2 = new CommandXboxController(1); 
 
     // Tuned Swerve
     public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
@@ -63,16 +65,12 @@ public class RobotContainer {
         
         chooser.addOption("SeptoBots Auto1", 0);
         chooser.addOption("SeptoBots Auto2" , 1);
-        //modeChooser.addOption("Competition", PivotState.STOW);
-        //modeChooser.addOption("Outreach", PivotState.MANUAL);
-        //shooter = new Shooter(drivetrain, intake::isIntaking,modeChooser.getSelected());
+        DriverStation.silenceJoystickConnectionWarning(true);
 
-
-
-
-
-
-    
+        NamedCommands.registerCommand("Arm to L4", new ScoringPosition(coralSubsystem, CoralPivotPositions.L4));
+        NamedCommands.registerCommand("Arm to L3", new ScoringPosition(coralSubsystem, CoralPivotPositions.L3));
+        NamedCommands.registerCommand("Arm to L2", new ScoringPosition(coralSubsystem, CoralPivotPositions.L2));
+        NamedCommands.registerCommand("Arm to L1", new ScoringPosition(coralSubsystem, CoralPivotPositions.L1));
         SmartDashboard.putData(chooser);
         
         configureBindings();
@@ -80,6 +78,10 @@ public class RobotContainer {
 
     // for swerve
     private void configureBindings() {
+        driver2.button(L4Button).onTrue(new ScoringPosition(coralSubsystem, CoralPivotPositions.L4));
+        driver2.button(L3Button).onTrue(new ScoringPosition(coralSubsystem, CoralPivotPositions.L3));
+        driver2.button(L2Button).onTrue(new ScoringPosition(coralSubsystem, CoralPivotPositions.L2));
+        driver2.button(L1Button).onTrue(new ScoringPosition(coralSubsystem, CoralPivotPositions.L1));
         // Note that X is defined as forward according to WPILib convention,
         // and Y is defined as to the left according to WPILib convention.
         drivetrain.setDefaultCommand(
@@ -107,12 +109,6 @@ public class RobotContainer {
         joystick.leftBumper().onTrue(drivetrain.runOnce(() -> drivetrain.seedFieldCentric()));
 
         drivetrain.registerTelemetry(logger::telemeterize);   
-        
-        new JoystickButton(driver2, 2) // Button 2 (Cross) for Stuck
-            .whileTrue(new MoveClawStuck(clawSubsystem));
-
-        new JoystickButton(driver2, 4) // Button 4 (Triangle) for Unstuck
-            .whileTrue(new MoveClawUnstuck(clawSubsystem));
 
     }
     private Command chooseAuto(){
